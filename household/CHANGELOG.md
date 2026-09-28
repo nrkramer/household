@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Setup: when the token check fails, show every Cloudflare call with its HTTP status and answer.
+- Setup: the connect step lists exactly which token permission rows are needed.
+- Setup: the tunnel permission check no longer passes on a 404.
+- Token link: try more names for the Zone WAF and Cloudflare Tunnel permissions.
+
 ## 0.2.1
 
 - Setup: fixed the address input being squeezed to zero width.

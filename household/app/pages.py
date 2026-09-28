@@ -280,13 +280,27 @@ def admin_page(base: str, pending: list[dict], members: list[dict], errors: list
 
 # -- setup wizard --------------------------------------------------------------
 
+# Keys verified to pre-fill: zone, dns, ssl_and_certificates, calls. The WAF and Tunnel keys
+# are undocumented; the dashboard silently ignores unknown keys, so candidates are harmless.
+# REQUIRED_TOKEN_ROWS below is what users are told to check either way.
 TOKEN_PERMISSIONS = [
     {"key": "zone", "type": "read"},
     {"key": "dns", "type": "edit"},
     {"key": "ssl_and_certificates", "type": "edit"},
-    {"key": "firewall_services", "type": "edit"},
+    {"key": "zone_waf", "type": "edit"},
+    {"key": "waf", "type": "edit"},
+    {"key": "cloudflare_tunnel", "type": "edit"},
+    {"key": "tunnel", "type": "edit"},
     {"key": "argo_tunnel", "type": "edit"},
     {"key": "calls", "type": "edit"},
+]
+REQUIRED_TOKEN_ROWS = [
+    ("Account", "Cloudflare Tunnel", "Edit"),
+    ("Account", "Cloudflare Calls", "Edit (for remote camera video)"),
+    ("Zone", "Zone", "Read"),
+    ("Zone", "DNS", "Edit"),
+    ("Zone", "SSL and Certificates", "Edit"),
+    ("Zone", "Zone WAF", "Edit"),
 ]
 
 
@@ -312,7 +326,9 @@ def wizard_connect(base: str, error: str = "") -> str:
 (from about $10/year), or add a domain you already own to a free Cloudflare account.</p>
 <ol>
 <li><a class="btn primary" href="{e(token_link())}" target="_blank" rel="noopener">Create a Cloudflare API token</a><br>
-<span class="muted">The permissions are pre-filled. Under <b>Zone Resources</b>, you can limit it to just the domain you'll use. Click <b>Continue to summary</b>, then <b>Create Token</b>.</span></li>
+<span class="muted">Most permissions are pre-filled. Before creating it, make sure the list has all of these rows; use <b>+ Add more</b> for any that are missing:</span>
+<table style="margin:8px 0">{''.join(f"<tr><td>{e(a)}</td><td>{e(p)}</td><td>{e(l)}</td></tr>" for a, p, l in REQUIRED_TOKEN_ROWS)}</table>
+<span class="muted">Under <b>Zone Resources</b>, you can limit it to just the domain you'll use. Then click <b>Continue to summary</b> and <b>Create Token</b>.</span></li>
 <li>Paste the token here:</li>
 </ol>
 {f'<p class="error">{e(error)}</p>' if error else ''}
@@ -352,6 +368,13 @@ def setup_page(base: str, hostname: str, steps: dict, results: dict, running: bo
         result = results.get(key)
         cls, icon = _STATUS_ICON.get(result["status"], ("muted", "·")) if result else ("muted", "·")
         detail = f'<br><span class="muted">{e(result["detail"])}</span>' if result and result.get("detail") else ""
+        if result and result.get("diagnostics"):
+            diag = "".join(
+                f'<tr><td>{e(d["label"])}</td><td class="{"ok" if d["status"] == 200 else "bad"}">{d["status"]}</td>'
+                f'<td class="mono" style="font-size:.8rem">{e(d["path"])}<br>{e(d["message"])}</td></tr>'
+                for d in result["diagnostics"])
+            detail += (f'<details style="margin-top:8px"><summary>What Cloudflare answered</summary>'
+                       f'<table><tr><th>Check</th><th>HTTP</th><th>Call / answer</th></tr>{diag}</table></details>')
         rows.append(f'<li style="list-style:none;margin:10px 0"><span class="{cls}" style="display:inline-block;width:1.6em">{icon}</span>{e(label)}{detail}</li>')
     if running:
         button = '<p class="muted"><span class="spinner"></span>Setting up… Home Assistant may restart once; this page will catch up.</p>'

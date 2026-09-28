@@ -80,28 +80,49 @@ class Cloudflare:
 
         Maps each permission to None if usable, else Cloudflare's error text.
         """
-        z, a = f"/zones/{self.zone_id}", f"/accounts/{self.account_id}"
-        probes = {
-            "Zone: Read": ("GET", z, {}),
-            "DNS: Edit": ("GET", f"{z}/dns_records", {"per_page": 1}),
-            "SSL and Certificates: Edit": ("GET", f"{z}/client_certificates", {"per_page": 1}),
-            # The exact entry point setup writes; listing all zone rulesets needs broader rights.
-            "Zone WAF: Edit": ("GET", f"{z}/rulesets/phases/http_request_firewall_custom/entrypoint", {}),
-            "Cloudflare Tunnel: Edit": ("GET", f"{a}/cfd_tunnel", {"per_page": 1}),
-            "Realtime (TURN): Edit": ("GET", f"{a}/calls/turn_keys", {}),
-        }
         result = {}
-        for label, (method, path, params) in probes.items():
-            try:
-                await self.request(method, path, params=params)
-                result[label] = None
-            except CloudflareError as err:
-                # 404 = allowed, nothing there yet (e.g. no custom firewall rules).
-                ok = err.status == 404 and not err.is_permission
-                result[label] = None if ok else str(err).split(": ", 1)[-1]
-                if not ok:
-                    _LOGGER.warning("Permission probe %s failed: %s", label, err)
+        for label, path, allow_404 in self._probes():
+            status, message = await self._probe(path)
+            ok = status == 200 or (allow_404 and status == 404)
+            result[label] = None if ok else message
+            if not ok:
+                _LOGGER.warning("Permission probe %s failed: HTTP %s %s", label, status, message)
         return result
+
+    def _probes(self) -> list[tuple[str, str, bool]]:
+        """(permission label, GET path, whether 404 means allowed-but-empty)."""
+        z, a = f"/zones/{self.zone_id}", f"/accounts/{self.account_id}"
+        return [
+            ("Zone: Read", z, False),
+            ("DNS: Edit", f"{z}/dns_records?per_page=1", False),
+            ("SSL and Certificates: Edit", f"{z}/client_certificates?per_page=1", False),
+            # 404 here just means the zone has no custom firewall rules yet.
+            ("Zone WAF: Edit", f"{z}/rulesets/phases/http_request_firewall_custom/entrypoint", True),
+            ("Cloudflare Tunnel: Edit", f"{a}/cfd_tunnel?per_page=1", False),
+            ("Realtime (TURN): Edit", f"{a}/calls/turn_keys", False),
+        ]
+
+    async def _probe(self, path: str) -> tuple[int, str]:
+        try:
+            await self.request("GET", path)
+            return 200, "ok"
+        except CloudflareError as err:
+            return err.status, str(err).split(": ", 1)[-1]
+        except aiohttp.ClientError as err:
+            return 0, str(err)
+
+    async def diagnose(self) -> list[dict]:
+        """Every call setup relies on, with Cloudflare's raw answer. Shown when setup fails."""
+        z = f"/zones/{self.zone_id}"
+        paths = [(label, path) for label, path, _ in self._probes()]
+        paths += [("Zone rulesets (list)", f"{z}/rulesets"), ("mTLS hostnames", f"{z}/certificate_authorities/hostname_associations"),
+                  ("Token verify", "/user/tokens/verify")]
+        rows = []
+        for label, path in paths:
+            status, message = await self._probe(path)
+            rows.append({"label": label, "path": path.replace(self.zone_id, "{zone}").replace(self.account_id, "{account}"),
+                         "status": status, "message": message})
+        return rows
 
     # -- tunnel ----------------------------------------------------------------
 

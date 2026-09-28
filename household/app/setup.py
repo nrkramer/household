@@ -70,8 +70,10 @@ class Setup:
     def complete(self) -> bool:
         return bool(self.settings.get("setup_complete"))
 
-    def _set(self, step: str, status: str, detail: str = "") -> None:
+    def _set(self, step: str, status: str, detail: str = "", diagnostics: list | None = None) -> None:
         self.results[step] = {"status": status, "detail": detail, "at": time.time()}
+        if diagnostics:
+            self.results[step]["diagnostics"] = diagnostics
         self.settings.save()
         log = _LOGGER.warning if status == "fail" else _LOGGER.info
         log("Setup %s: %s %s", step, status, detail)
@@ -130,7 +132,8 @@ class Setup:
         perms = await self.cf.check_permissions()
         missing = [f"{p} (Cloudflare said: {perms[p]})" for p in REQUIRED_PERMISSIONS if perms.get(p)]
         if missing:
-            self._set("permissions", "fail", "The token is missing: " + "; ".join(missing))
+            self._set("permissions", "fail", "The token is missing: " + "; ".join(missing),
+                      diagnostics=await self.cf.diagnose())
             return
         turn_allowed = perms.get(TURN_PERMISSION) is None
         self._set("permissions", "ok" if turn_allowed else "warn",
