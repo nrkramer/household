@@ -1,0 +1,38 @@
+#include <tunables/global>
+
+profile household flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  file,
+  network,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # Python app: settings/state in /data, installs the TURN integration into
+  # /homeassistant/custom_components.
+  /usr/local/bin/python3* ix,
+  /data/** rw,
+  /homeassistant/custom_components/** rw,
+  /tmp/** rwk,
+
+  # cloudflared runs in its own profile: network plus what the Go runtime and
+  # TLS need, and no access to /data (Cloudflare API token) or /homeassistant.
+  /usr/local/bin/cloudflared cx -> cloudflared,
+
+  profile cloudflared flags=(attach_disconnected,mediate_deleted) {
+    #include <abstractions/base>
+
+    network,
+    signal (receive) peer=*_household,
+
+    /usr/local/bin/cloudflared rm,
+    /etc/** r,
+    /usr/share/ca-certificates/** r,
+    /proc/** r,
+    /sys/** r,
+    /dev/urandom r,
+    /tmp/** rwk,
+
+    deny /data/** rwklx,
+    deny /homeassistant/** rwklx,
+  }
+}

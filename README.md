@@ -58,7 +58,10 @@ When creating it, limit **Zone Resources** to the domain you use.
 |---|---|
 | `household/` | The add-on: setup wizard, bundled `cloudflared`, LAN join portal, admin panel |
 | `household/integration/cloudflare_turn/` | Small integration the add-on installs into Home Assistant to supply TURN relay credentials to WebRTC streams |
-| `deploy.ps1` | Developer helper: copy the add-on to a test box over the Samba add-on |
+| `.github/workflows/` | Builds and publishes multi-arch images to `ghcr.io/nrkramer/household` on every push to `main` (HA's official builder actions), plus the app linter |
+| `deploy.ps1` | Developer helper: copy the add-on to a test box over the Samba add-on. It removes `image:` from the copy so the box builds it locally |
+
+Releasing: bump `version` in `household/config.yaml`, add a `CHANGELOG.md` entry, and push to `main`. CI publishes the image; Home Assistant then offers the update.
 
 ## Security notes
 

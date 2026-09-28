@@ -6,6 +6,9 @@
 - `cloudflared` is bundled and run by the add-on (no separate Cloudflared add-on needed).
 - The camera relay integration is installed and configured automatically.
 - Cloudflare settings moved from add-on options into the setup wizard.
+- Pre-built images for amd64 and aarch64 (no more building on your device).
+- AppArmor profile: `cloudflared` runs confined, without access to the add-on's data or your Home Assistant config.
+- Icon and logo.
 
 ## 0.1.x
 

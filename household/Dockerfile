@@ -1,15 +1,18 @@
 FROM python:3.12-alpine
 
-ARG BUILD_ARCH=amd64
+# TARGETARCH (amd64/arm64) comes from BuildKit in CI; BUILD_ARCH (amd64/aarch64)
+# from the Supervisor when building locally.
+ARG TARGETARCH
+ARG BUILD_ARCH
 ARG CLOUDFLARED_VERSION=2026.9.3
 ARG CLOUDFLARED_SHA256_amd64=77e26d8d900e0b8469f416239d14b5f296525fdf79fee6f511ef55609e3fbac2
-ARG CLOUDFLARED_SHA256_aarch64=aaeb2d7d0da3614634c7e03ab13487a1522c2e79165ed2929cfe23d5e95b326d
+ARG CLOUDFLARED_SHA256_arm64=aaeb2d7d0da3614634c7e03ab13487a1522c2e79165ed2929cfe23d5e95b326d
 
 RUN set -eux; \
-    case "${BUILD_ARCH}" in \
+    case "${TARGETARCH:-${BUILD_ARCH}}" in \
       amd64) arch=amd64; sha="${CLOUDFLARED_SHA256_amd64}" ;; \
-      aarch64) arch=arm64; sha="${CLOUDFLARED_SHA256_aarch64}" ;; \
-      *) echo "Unsupported arch ${BUILD_ARCH}"; exit 1 ;; \
+      arm64|aarch64) arch=arm64; sha="${CLOUDFLARED_SHA256_arm64}" ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH:-${BUILD_ARCH}}"; exit 1 ;; \
     esac; \
     wget -q -O /usr/local/bin/cloudflared \
       "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${arch}"; \
@@ -24,3 +27,9 @@ COPY integration/ /app/integration/
 COPY app/ /app/household/
 
 CMD ["python", "-m", "household"]
+
+LABEL \
+    org.opencontainers.image.title="Home Assistant App: Household" \
+    org.opencontainers.image.description="Remote access via Cloudflare Tunnel + mTLS with household self-onboarding" \
+    org.opencontainers.image.source="https://github.com/nrkramer/household" \
+    org.opencontainers.image.licenses="MIT"

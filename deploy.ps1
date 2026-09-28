@@ -25,4 +25,10 @@ $dest = "$unc\household"
 robocopy (Join-Path $root 'household') $dest /MIR /XD __pycache__ /NFL /NDL /NJH /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
 $global:LASTEXITCODE = 0  # robocopy uses 1-7 for success
+
+# Build the test copy on the box instead of pulling the published image.
+$configFile = "$dest\config.yaml"
+$config = (Get-Content $configFile) | Where-Object { $_ -notmatch '^image:' }
+[IO.File]::WriteAllLines($configFile, $config, (New-Object Text.UTF8Encoding $false))
+
 Write-Host "Deployed to $dest. In HA: Settings > Add-ons > Add-on Store > (menu) Check for updates, then update Household."

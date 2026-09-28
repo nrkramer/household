@@ -3,6 +3,7 @@ version: "0.2.0"
 slug: household
 description: Remote access without a VPN or open ports. Cloudflare Tunnel + per-device certificates, with self-service onboarding for your household.
 url: https://github.com/nrkramer/household
+image: ghcr.io/nrkramer/household
 arch:
   - aarch64
   - amd64
