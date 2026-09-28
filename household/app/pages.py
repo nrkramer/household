@@ -32,6 +32,9 @@ code,.mono{font-family:ui-monospace,Consolas,monospace}
 .secret{font-family:ui-monospace,Consolas,monospace;font-size:1.4rem;letter-spacing:.06em;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;display:inline-block}
 .copyrow{display:flex;gap:8px;align-items:center}
 .copyrow input{flex:1}
+.addrrow{display:flex;gap:6px;align-items:center}
+.addrrow input{flex:0 0 9em;width:9em}
+.addrrow select{flex:1 1 auto;width:auto;min-width:0}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:.85rem;color:var(--muted);font-weight:600}
@@ -330,7 +333,7 @@ def wizard_domain(base: str, zones: list[dict], subdomain: str = "ha", error: st
 {f'<p class="error">{e(error)}</p>' if error else ''}
 <form method="post" action="{e(base)}/setup/domain" class="card">
   <label for="subdomain">Address</label>
-  <div class="copyrow"><input id="subdomain" name="subdomain" value="{e(subdomain)}" style="max-width:10em"><span>.</span>
+  <div class="addrrow"><input id="subdomain" name="subdomain" value="{e(subdomain)}" autocapitalize="none" autocorrect="off"><span>.</span>
   <select name="zone_id">{options}</select></div>
   <p class="muted">Household members' phones will use <b>https://&lt;address&gt;</b> from outside your home.</p>
   <p><button class="btn primary" type="submit">Continue</button></p>
