@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Setup: fixed the address input being squeezed to zero width.
+- Setup: permission check probes the exact firewall entry point it uses, and shows Cloudflare's error text when a permission is missing.
+
 ## 0.2.0
 
 - Guided setup in the Household panel: one pre-filled Cloudflare token, then one click creates the tunnel, DNS, mTLS, firewall rule and TURN relay, configures Home Assistant's reverse proxy settings, and runs an end-to-end test.

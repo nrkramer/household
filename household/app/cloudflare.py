@@ -75,8 +75,11 @@ class Cloudflare:
         zones = await self.request("GET", "/zones", params={"per_page": 50, "status": "active"})
         return [{"id": z["id"], "name": z["name"], "account_id": z["account"]["id"]} for z in zones]
 
-    async def check_permissions(self) -> dict[str, bool]:
-        """Read-only probe of everything setup needs. Edit rights imply read rights."""
+    async def check_permissions(self) -> dict[str, str | None]:
+        """Read-only probe of everything setup needs. Edit rights imply read rights.
+
+        Maps each permission to None if usable, else Cloudflare's error text.
+        """
         z, a = f"/zones/{self.zone_id}", f"/accounts/{self.account_id}"
         probes = {
             "Zone: Read": ("GET", z, {}),
@@ -91,12 +94,13 @@ class Cloudflare:
         for label, (method, path, params) in probes.items():
             try:
                 await self.request(method, path, params=params)
-                result[label] = True
+                result[label] = None
             except CloudflareError as err:
                 # 404 = allowed, nothing there yet (e.g. no custom firewall rules).
-                result[label] = err.status == 404 and not err.is_permission
-                if not result[label]:
-                    _LOGGER.info("Permission probe %s failed: %s", label, err)
+                ok = err.status == 404 and not err.is_permission
+                result[label] = None if ok else str(err).split(": ", 1)[-1]
+                if not ok:
+                    _LOGGER.warning("Permission probe %s failed: %s", label, err)
         return result
 
     # -- tunnel ----------------------------------------------------------------

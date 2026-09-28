@@ -128,11 +128,11 @@ class Setup:
         # 1. Permissions
         self._set("permissions", "running")
         perms = await self.cf.check_permissions()
-        missing = [p for p in REQUIRED_PERMISSIONS if not perms.get(p)]
+        missing = [f"{p} (Cloudflare said: {perms[p]})" for p in REQUIRED_PERMISSIONS if perms.get(p)]
         if missing:
-            self._set("permissions", "fail", "The token is missing: " + ", ".join(missing))
+            self._set("permissions", "fail", "The token is missing: " + "; ".join(missing))
             return
-        turn_allowed = perms.get(TURN_PERMISSION, False)
+        turn_allowed = perms.get(TURN_PERMISSION) is None
         self._set("permissions", "ok" if turn_allowed else "warn",
                   "" if turn_allowed else f"Missing '{TURN_PERMISSION}': camera relay will be skipped")
 
