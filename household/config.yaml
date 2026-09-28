@@ -1,5 +1,5 @@
 name: Household
-version: "0.2.4"
+version: "0.2.5"
 slug: household
 description: Remote access without a VPN or open ports. Cloudflare Tunnel + per-device certificates, with self-service onboarding for your household.
 url: https://github.com/nrkramer/household
@@ -9,6 +9,7 @@ arch:
   - amd64
 init: false
 homeassistant_api: true
+hassio_api: true
 ingress: true
 ingress_port: 8098
 panel_icon: mdi:home-account

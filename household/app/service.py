@@ -7,14 +7,14 @@ import re
 import secrets
 import time
 
-from .certs import build_p12, new_bundle_password, new_key_and_csr
+from .certs import build_p12, new_key_and_csr
 from .cloudflare import Cloudflare
 from .ha import HAError, HomeAssistant
 from .store import Settings, Store
 
 _LOGGER = logging.getLogger(__name__)
 
-ADDON_PANEL = "/hassio/ingress/local_household"
+DEFAULT_PANEL = "/local_household"  # replaced at startup with this app's real sidebar path
 USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
 MAX_PENDING = 10
 REQUEST_TTL = 24 * 3600  # pending requests expire after a day
@@ -33,6 +33,7 @@ class Household:
     def __init__(self, store: Store, settings: Settings, ha: HomeAssistant, cf: Cloudflare, options: dict) -> None:
         self.store = store
         self.settings = settings
+        self.panel_path = DEFAULT_PANEL
         self.ha = ha
         self.cf = cf
         self.options = options
@@ -179,8 +180,7 @@ class Household:
         try:
             key, csr = new_key_and_csr(f"{request['username']} / {request['device']}")
             cert = await self.cf.sign(csr, self.options["cert_validity_days"])
-            password = new_bundle_password()
-            bundle = build_p12(key, cert["certificate"], f"Home Assistant ({request['device']})", password)
+            bundle = build_p12(key, cert["certificate"], f"Home Assistant ({request['device']})")
         except Exception as err:
             _LOGGER.exception("Issuing certificate for %s failed", request["username"])
             request["status"] = "error"
@@ -189,7 +189,7 @@ class Household:
             return
 
         self.store.bundle_path(request["id"]).write_bytes(bundle)
-        request.update(status="issued", issued=time.time(), cert_id=cert["id"], bundle_password=password)
+        request.update(status="issued", issued=time.time(), cert_id=cert["id"])
         request.pop("error", None)
 
         member = self.store.member_for(request["user_id"], request["name"], request["username"])
@@ -212,7 +212,7 @@ class Household:
     async def _notify_admin(self, request: dict) -> None:
         message = (
             f"**{request['name']}** ({request['username']}) wants to join from "
-            f"*{request['device']}*.\n\n[Review join requests]({ADDON_PANEL})"
+            f"*{request['device']}*.\n\n[Approve or deny]({self.panel_path})"
         )
         try:
             await self.ha.call_service(
@@ -238,8 +238,8 @@ class Household:
                     "message": f"{request['name']} wants to join from {request['device']}.",
                     "data": {
                         "tag": f"household_{request['id']}",
-                        "url": ADDON_PANEL,
-                        "clickAction": ADDON_PANEL,
+                        "url": self.panel_path,
+                        "clickAction": self.panel_path,
                         "actions": [
                             {"action": f"HOUSEHOLD_APPROVE_{request['id']}", "title": "Approve", "authenticationRequired": True},
                             {"action": f"HOUSEHOLD_DENY_{request['id']}", "title": "Deny", "destructive": True},
@@ -260,6 +260,8 @@ class Household:
 
     async def _on_notification_action(self, event: dict) -> None:
         action = event.get("data", {}).get("action", "")
+        if action.startswith("HOUSEHOLD_"):
+            _LOGGER.info("Notification action %s", action)
         if action.startswith("HOUSEHOLD_APPROVE_"):
             await self.approve(action.removeprefix("HOUSEHOLD_APPROVE_"))
         elif action.startswith("HOUSEHOLD_DENY_"):

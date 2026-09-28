@@ -1,7 +1,5 @@
 """Key, CSR and PKCS#12 generation."""
 
-import secrets
-
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -28,22 +26,23 @@ def new_key_and_csr(common_name: str) -> tuple[rsa.RSAPrivateKey, str]:
     return key, csr.public_bytes(serialization.Encoding.PEM).decode()
 
 
-def new_bundle_password() -> str:
-    # Short and easy to type on a phone; only protects the file in transit on the LAN.
-    return "-".join(f"{secrets.randbelow(10000):04d}" for _ in range(3))
-
-
-def build_p12(key: rsa.RSAPrivateKey, cert_pem: str, friendly_name: str, password: str) -> bytes:
+def build_p12(key: rsa.RSAPrivateKey, cert_pem: str, friendly_name: str, password: str = "") -> bytes:
+    """PKCS#12 bundle. Without a password it is unprotected, which both companion apps
+    import without prompting (iOS omits the passphrase; Android's installer tries "" first).
+    The file is only served once, to the browser that requested it, on the LAN."""
     cert = x509.load_pem_x509_certificate(cert_pem.encode())
-    # Legacy PBE (3DES + SHA1 MAC): the one format every Android and iOS
-    # version imports without complaint.
-    encryption = (
-        serialization.PrivateFormat.PKCS12.encryption_builder()
-        .kdf_rounds(50000)
-        .key_cert_algorithm(pkcs12.PBES.PBESv1SHA1And3KeyTripleDESCBC)
-        .hmac_hash(hashes.SHA1())
-        .build(password.encode())
-    )
+    if not password:
+        encryption = serialization.NoEncryption()
+    else:
+        # Legacy PBE (3DES + SHA1 MAC): the one format every Android and iOS
+        # version imports without complaint.
+        encryption = (
+            serialization.PrivateFormat.PKCS12.encryption_builder()
+            .kdf_rounds(50000)
+            .key_cert_algorithm(pkcs12.PBES.PBESv1SHA1And3KeyTripleDESCBC)
+            .hmac_hash(hashes.SHA1())
+            .build(password.encode())
+        )
     return pkcs12.serialize_key_and_certificates(
         friendly_name.encode(), key, cert, None, encryption
     )

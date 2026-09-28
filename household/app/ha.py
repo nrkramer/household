@@ -207,6 +207,27 @@ class HomeAssistant:
     async def promote_http(self) -> None:
         await self.command({"type": "http/config/promote"})
 
+    # -- this app (Supervisor API) ----------------------------------------------
+
+    async def _supervisor(self, method: str, path: str, payload: dict | None = None) -> dict:
+        async with self._session.request(
+            method, f"{SUPERVISOR}/{path}", json=payload, headers={"Authorization": f"Bearer {self._token}"}
+        ) as resp:
+            body = await resp.json(content_type=None)
+        if resp.status >= 400 or body.get("result") != "ok":
+            raise HAError(str(resp.status), str(body.get("message")))
+        return body.get("data") or {}
+
+    async def app_panel_path(self) -> str:
+        """Frontend path of this app's sidebar panel ("/<slug>"), enabling the panel if it's off.
+
+        Notification links point here, and the path only exists while the panel is in the sidebar.
+        """
+        info = await self._supervisor("GET", "addons/self/info")
+        if not info.get("ingress_panel"):
+            await self._supervisor("POST", "addons/self/options", {"ingress_panel": True})
+        return f"/{info['slug']}"
+
     # -- integrations ----------------------------------------------------------
 
     async def integration_loaded(self, domain: str) -> bool:

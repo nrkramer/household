@@ -10,7 +10,7 @@ import aiohttp
 from aiohttp import web
 
 from .cloudflare import Cloudflare
-from .ha import HomeAssistant
+from .ha import HAError, HomeAssistant
 from .service import Household
 from .setup import Setup
 from .store import Settings, Store
@@ -37,6 +37,10 @@ async def main() -> None:
             tunnel.set_token(settings["tunnel_token"])
 
         hh = Household(Store(), settings, ha, cf, options)
+        try:
+            hh.panel_path = await ha.app_panel_path()
+        except (HAError, aiohttp.ClientError) as err:
+            logging.warning("Could not look up this app's panel path (%s); notification links may not work", err)
         setup = Setup(settings, cf, ha, tunnel)
 
         runners = []

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5
+
+- Joining is now three steps: save the certificate, tap **Open Home Assistant** (an invite link that opens the app with the address filled in), then sign in. There's nothing to copy or paste.
+- Certificates no longer have a password.
+- iOS: the certificate link saves to Files instead of Safari offering it as a system profile.
+- Approval notifications open the Household panel (they pointed at a path that 404'd). The app looks up its own panel path and makes sure it's in the sidebar.
+
 ## 0.2.4
 
 - Setup no longer restarts Home Assistant to update the camera relay integration. The new version loads on the next restart. A first-time install shows a "Restart Home Assistant to finish" button instead of restarting on its own.

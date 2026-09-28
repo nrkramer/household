@@ -32,6 +32,10 @@ code,.mono{font-family:ui-monospace,Consolas,monospace}
 .secret{font-family:ui-monospace,Consolas,monospace;font-size:1.4rem;letter-spacing:.06em;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;display:inline-block}
 .copyrow{display:flex;gap:8px;align-items:center}
 .copyrow input{flex:1}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .num{flex:0 0 2em;height:2em;border-radius:50%;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-weight:700}
+.step p{margin:6px 0 0}
+details summary{cursor:pointer;font-weight:600}
 .addrrow{display:flex;gap:6px;align-items:center}
 .addrrow input{flex:0 0 9em;width:9em}
 .addrrow select{flex:1 1 auto;width:auto;min-width:0}
@@ -167,44 +171,58 @@ The home owner can retry from the Household panel.</p><p class="muted mono">{e(r
     return page("Your certificate is ready", issued_body(request, external_url))
 
 
+def invite_link(external_url: str) -> str:
+    """Opens the Home Assistant app (or its store page) with the server address pre-filled."""
+    return f"https://my.home-assistant.io/invite/#url={quote(external_url, safe='')}"
+
+
 def issued_body(request: dict, external_url: str) -> str:
     platform = request["platform"]
-    pw = e(request["bundle_password"])
-    url = e(external_url)
-    download = f'<a class="btn primary" href="{e(request["id"])}/household.p12">Download certificate</a>'
-    common_tail = f"""
-<div class="card">
-  <p><b>Server address</b> (use this in the app):</p>
-  <div class="copyrow"><input id="exturl" value="{url}" readonly><button class="btn small" data-copy="exturl" onclick="copyField('exturl')">Copy</button></div>
-  <p><b>Certificate password:</b></p>
-  <div class="copyrow"><input id="p12pw" class="mono" value="{pw}" readonly><button class="btn small" data-copy="p12pw" onclick="copyField('p12pw')">Copy</button></div>
-  <p class="muted">Then sign in with username <b>{e(request['username'])}</b> and your password.</p>
-</div>"""
+    user = e(request["username"])
+    invite = e(invite_link(external_url))
+    # `download` makes iOS Safari save to Files instead of offering it as a system profile,
+    # which the Home Assistant app can't use.
+    cert_href = f'{e(request["id"])}/household.p12'
 
     if platform == "ios":
-        steps = f"""<ol>
-<li>{download}<br><span class="muted">Tap <b>Download</b> when Safari asks. It's saved in the Files app under Downloads.</span></li>
-<li>Install <a href="https://apps.apple.com/app/home-assistant/id1099568401">Home Assistant</a> from the App Store (version 2026.9.1 or newer), and open it.</li>
-<li>Choose to enter the address manually and paste the server address below.</li>
-<li>When the app says the server needs a client certificate, tap <b>Import</b>, pick <code>household.p12</code> from Downloads and enter the certificate password.</li>
-<li>Already set up the app at home? Go to <b>Settings → Companion App → your server</b>, set the <b>External URL</b> to the address below, and import the certificate under <b>Client Certificate</b>.</li>
-</ol>"""
+        steps = f"""
+<div class="step"><span class="num">1</span><div>
+  <a class="btn primary" href="{cert_href}" download="household.p12">Save certificate</a>
+  <p class="muted">If Safari asks, tap <b>Download</b>. It goes to Files → Downloads.</p></div></div>
+<div class="step"><span class="num">2</span><div>
+  <a class="btn primary" href="{invite}">Open Home Assistant</a>
+  <p class="muted">Opens the app with your home's address filled in (or the App Store if it isn't installed yet).
+  When it asks for a certificate, tap <b>Select Certificate File</b>, pick <b>household.p12</b> from Downloads, leave the password empty and tap <b>Import</b>.</p></div></div>
+<div class="step"><span class="num">3</span><div><p>Sign in as <b>{user}</b> with your password.</p></div></div>"""
+        already = ("In the app, go to <b>Settings → Companion App → your server</b>, set <b>External URL</b> to the address below, "
+                   "and import the certificate under <b>Client Certificate</b>.")
     elif platform == "android":
-        steps = f"""<ol>
-<li>{download}</li>
-<li>Tap the downloaded file. If it doesn't open an installer, go to <b>Settings → Security &amp; privacy → More security settings → Encryption &amp; credentials → Install a certificate → VPN &amp; app user certificate</b> and pick <code>household.p12</code>.</li>
-<li>Enter the certificate password and keep the suggested name.</li>
-<li>Install <a href="https://play.google.com/store/apps/details?id=io.homeassistant.companion.android">Home Assistant</a>, open it and enter the server address below. When Android asks which certificate to use, choose the one you just installed.</li>
-<li>Already set up the app at home? In <b>Settings → Companion app → your server</b>, set the <b>External URL</b> to the address below. You'll be asked for the certificate the first time you're away from home.</li>
-</ol>"""
+        steps = f"""
+<div class="step"><span class="num">1</span><div>
+  <a class="btn primary" href="{cert_href}">Install certificate</a>
+  <p class="muted">Android opens the certificate installer. Keep the suggested name and tap <b>OK</b>. If nothing opens, tap the downloaded file.</p></div></div>
+<div class="step"><span class="num">2</span><div>
+  <a class="btn primary" href="{invite}">Open Home Assistant</a>
+  <p class="muted">Opens the app with your home's address filled in (or Google Play if it isn't installed yet).
+  When Android asks which certificate to use, pick the one you just installed.</p></div></div>
+<div class="step"><span class="num">3</span><div><p>Sign in as <b>{user}</b> with your password.</p></div></div>"""
+        already = ("In the app, go to <b>Settings → Companion app → your server</b> and set <b>External URL</b> to the address below. "
+                   "Android asks for the certificate the first time you're away from home. "
+                   "If the installer didn't open in step 1: <b>Settings → Security → Encryption &amp; credentials → Install a certificate → "
+                   "VPN &amp; app user certificate</b>.")
     else:
-        steps = f"""<ol><li>{download}</li>
-<li>Import <code>household.p12</code> into your device or browser's certificate store using the password below, then open the server address.</li></ol>"""
+        steps = f"""
+<div class="step"><span class="num">1</span><div><a class="btn primary" href="{cert_href}" download="household.p12">Download certificate</a>
+  <p class="muted">Import it into your device or browser (there's no password), then open the address below.</p></div></div>"""
+        already = "Use the address below."
 
     return f"""<h1>You're in, {e(request['name'])}!</h1>
-<p class="muted">This certificate lets <b>{e(request['device'])}</b> reach Home Assistant from anywhere. Download it now – the link works for 24 hours.</p>
-<div class="card">{steps}</div>{common_tail}
-<p><a class="btn" href="homeassistant://navigate/lovelace">Open the Home Assistant app</a></p>"""
+<p class="muted">Three quick steps to use Home Assistant on <b>{e(request['device'])}</b> from anywhere. This page works for 24 hours.</p>
+<div class="card">{steps}</div>
+<details class="card"><summary>App already set up at home, or something didn't work?</summary>
+  <p>{already}</p>
+  <div class="copyrow"><input id="exturl" value="{e(external_url)}" readonly><button class="btn small" data-copy="exturl" onclick="copyField('exturl')">Copy</button></div>
+</details>"""
 
 
 # -- admin -------------------------------------------------------------------
