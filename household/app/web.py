@@ -175,11 +175,12 @@ def _qr_svg(url: str) -> str:
 
 async def admin_home(request: web.Request) -> web.Response:
     hh, setup = request.app[HOUSEHOLD], request.app[SETUP]
-    if not setup.complete:
+    if not setup.complete and not hh.store.members and not setup.results:
+        # First visit: nothing to manage yet, go straight to setup.
         raise web.HTTPSeeOther(f"{_base(request)}/setup")
     urls = await _portal_urls(hh)
     status = {
-        f"Remote access: {hh.external_url}": True,
+        f"Remote access: {hh.external_url or 'not set up'}": setup.complete,
         "Tunnel connected": setup.tunnel.connected,
         "Push approvals (notify_service set)": bool((hh.options.get("notify_service") or "").strip()),
     }

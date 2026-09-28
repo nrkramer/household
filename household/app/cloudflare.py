@@ -141,6 +141,13 @@ class Cloudflare:
             ingress = ((config or {}).get("config") or {}).get("ingress") or []
             if any(rule.get("hostname") == self.hostname for rule in ingress):
                 return tunnel["id"], False
+        records = await self.request("GET", f"/zones/{self.zone_id}/dns_records", params={"name": self.hostname})
+        for record in records:
+            target = record.get("content", "")
+            if record["type"] == "CNAME" and target.endswith(".cfargotunnel.com"):
+                tunnel_id = target.removesuffix(".cfargotunnel.com")
+                if any(t["id"] == tunnel_id for t in remote):
+                    return tunnel_id, False
         for tunnel in remote:
             if tunnel["name"] == TUNNEL_NAME:
                 return tunnel["id"], False

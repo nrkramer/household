@@ -35,6 +35,16 @@ REQUIRED_PERMISSIONS = (
 )
 TURN_PERMISSION = "Realtime (TURN): Edit"
 
+# The token row each Cloudflare step needs, for "Cloudflare refused" messages.
+STEP_PERMISSION = {
+    "tunnel": "Account · Cloudflare Tunnel · Edit",
+    "dns": "Zone · DNS · Edit",
+    "mtls": "Zone · SSL and Certificates · Edit",
+    "firewall": "Zone · Zone WAF · Edit",
+    "turn": "Account · Cloudflare Calls · Edit",
+    "test": "Zone · SSL and Certificates · Edit",
+}
+
 STEPS = {
     "permissions": "Cloudflare token permissions",
     "tunnel": "Cloudflare Tunnel",
@@ -96,7 +106,12 @@ class Setup:
             except Exception as err:  # noqa: BLE001 - surface anything in the panel
                 _LOGGER.exception("Setup failed")
                 running = [k for k, v in self.results.items() if v["status"] == "running"]
-                self._set(running[0] if running else "permissions", "fail", str(err))
+                step = running[0] if running else "permissions"
+                detail = str(err)
+                if isinstance(err, CloudflareError) and err.is_permission and step in STEP_PERMISSION:
+                    detail = (f"Cloudflare refused this step. Edit the token in Cloudflare (My Profile → API Tokens) "
+                              f"and make sure it has {STEP_PERMISSION[step]} (Edit, not Read). Details: {err}")
+                self._set(step, "fail", detail)
             finally:
                 self.running = False
 

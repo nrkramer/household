@@ -270,7 +270,7 @@ def admin_page(base: str, pending: list[dict], members: list[dict], errors: list
   <div style="flex:1;min-width:220px"><p><b>Invite someone</b></p>
   <p class="muted">Have them join your Wi-Fi, then scan this code or open:</p>{links}
   <ul style="list-style:none;padding:0;margin-top:14px">{status_items}</ul>
-  <p><a class="btn small" href="{e(base)}/setup">Remote access setup</a></p></div>
+  <p><a class="btn small {'' if all(status.values()) else 'primary'}" href="{e(base)}/setup">Remote access setup</a></p></div>
 </div>
 <h2>Join requests</h2><div class="card">{error_html}{pending_html}</div>
 <h2>Members</h2>{''.join(member_cards) or '<p class="muted">Nobody has joined yet.</p>'}""",

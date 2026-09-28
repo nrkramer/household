@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- The Household page (members, revoking) is always reachable, even while setup is incomplete.
+- When Cloudflare refuses a setup step, the message names the exact token permission to add.
+- Setup reuses the tunnel your address's DNS record already points to.
+
 ## 0.2.2
 
 - Setup: when the token check fails, show every Cloudflare call with its HTTP status and answer.
