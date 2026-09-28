@@ -1,0 +1,29 @@
+name: Household
+version: "0.2.0"
+slug: household
+description: Remote access without a VPN or open ports. Cloudflare Tunnel + per-device certificates, with self-service onboarding for your household.
+url: https://github.com/nrkramer/household
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: auto
+homeassistant_api: true
+ingress: true
+ingress_port: 8098
+panel_icon: mdi:home-account
+panel_title: Household
+map:
+  - type: homeassistant_config
+    read_only: false
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: Join portal (LAN only - do not forward this port)
+options:
+  cert_validity_days: 3650
+  notify_service: ""
+schema:
+  cert_validity_days: int(30,3650)
+  notify_service: str?

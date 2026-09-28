@@ -1,0 +1,9 @@
+configuration:
+  cert_validity_days:
+    name: Certificate validity (days)
+    description: How long issued device certificates are valid. Revoking is the real control, so a long lifetime is fine.
+  notify_service:
+    name: Approval notify service
+    description: Optional, e.g. notify.mobile_app_my_phone. Sends join requests to your phone with Approve/Deny buttons.
+network:
+  8099/tcp: Join portal (LAN only)

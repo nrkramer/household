@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cloudflare TURN",
+        "description": "Create a TURN key in the Cloudflare dashboard under Realtime > TURN Server, then paste its key ID and API token here.",
+        "data": {
+          "key_id": "TURN key ID",
+          "api_token": "TURN key API token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Cloudflare TURN",
+        "description": "Cloudflare rejected the TURN key. Paste a valid key ID and API token.",
+        "data": {
+          "key_id": "TURN key ID",
+          "api_token": "TURN key API token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Cloudflare rejected this key ID / token.",
+      "cannot_connect": "Could not reach Cloudflare."
+    },
+    "abort": {
+      "already_configured": "This TURN key is already set up.",
+      "reauth_successful": "TURN key updated."
+    }
+  }
+}

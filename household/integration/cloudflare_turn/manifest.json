@@ -1,0 +1,12 @@
+{
+  "domain": "cloudflare_turn",
+  "name": "Cloudflare TURN",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["web_rtc"],
+  "documentation": "https://developers.cloudflare.com/realtime/turn/",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.2.0"
+}
