@@ -1,8 +1,12 @@
 """Cloudflare API client: tunnel, DNS, mTLS, WAF, client certificates, TURN keys."""
 
+import logging
+
 import aiohttp
 
-API = "https://api.cloudflare.com/client/v4"
+_LOGGER = logging.getLogger(__name__)
+
+API ="https://api.cloudflare.com/client/v4"
 TUNNEL_NAME = "home-assistant"
 HA_SERVICE = "http://homeassistant:8123"
 # Custom WAF rule ref, so re-running setup updates our rule instead of adding another.
@@ -78,7 +82,8 @@ class Cloudflare:
             "Zone: Read": ("GET", z, {}),
             "DNS: Edit": ("GET", f"{z}/dns_records", {"per_page": 1}),
             "SSL and Certificates: Edit": ("GET", f"{z}/client_certificates", {"per_page": 1}),
-            "Zone WAF: Edit": ("GET", f"{z}/rulesets", {}),
+            # The exact entry point setup writes; listing all zone rulesets needs broader rights.
+            "Zone WAF: Edit": ("GET", f"{z}/rulesets/phases/http_request_firewall_custom/entrypoint", {}),
             "Cloudflare Tunnel: Edit": ("GET", f"{a}/cfd_tunnel", {"per_page": 1}),
             "Realtime (TURN): Edit": ("GET", f"{a}/calls/turn_keys", {}),
         }
@@ -87,8 +92,11 @@ class Cloudflare:
             try:
                 await self.request(method, path, params=params)
                 result[label] = True
-            except CloudflareError:
-                result[label] = False
+            except CloudflareError as err:
+                # 404 = allowed, nothing there yet (e.g. no custom firewall rules).
+                result[label] = err.status == 404 and not err.is_permission
+                if not result[label]:
+                    _LOGGER.info("Permission probe %s failed: %s", label, err)
         return result
 
     # -- tunnel ----------------------------------------------------------------
