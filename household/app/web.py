@@ -235,7 +235,8 @@ async def setup_view(request: web.Request) -> web.Response:
             return _html(pages.wizard_connect(base, "This token can't see any active domains. "
                                                     "Check the token's Zone Resources, or add a domain to Cloudflare first."))
         return _html(pages.wizard_domain(base, zones))
-    return _html(pages.setup_page(base, settings["hostname"], STEPS, setup.results, setup.running, setup.complete))
+    return _html(pages.setup_page(base, settings["hostname"], STEPS, setup.results, setup.running, setup.complete,
+                                  restart_needed=bool(settings.get("integration_pending"))))
 
 
 async def setup_token(request: web.Request):
@@ -274,6 +275,11 @@ async def setup_run(request: web.Request):
     raise web.HTTPSeeOther(f"{_base(request)}/setup")
 
 
+async def setup_restart(request: web.Request):
+    await request.app[SETUP].ha.restart()
+    raise web.HTTPSeeOther(f"{_base(request)}/setup")
+
+
 async def setup_reset(request: web.Request):
     """Forget token and address. Cloudflare resources, members and certificates stay as they are."""
     setup = request.app[SETUP]
@@ -296,6 +302,7 @@ def admin_app(hh: Household, setup: Setup) -> web.Application:
             web.post("/setup/domain", setup_domain),
             web.post("/setup/run", setup_run),
             web.post("/setup/reset", setup_reset),
+            web.post("/setup/restart", setup_restart),
             web.post("/approve/{id}", admin_approve),
             web.post("/deny/{id}", admin_deny),
             web.post("/revoke/{user_id}/{cert_id}", admin_revoke),

@@ -45,6 +45,10 @@ STEP_PERMISSION = {
     "test": "Zone · SSL and Certificates · Edit",
 }
 
+PERMISSION_ATTEMPTS = 4
+PERMISSION_RETRY_DELAY = 20
+RESTART_TO_FINISH = "Installed. Restart Home Assistant (whenever convenient) to finish enabling the camera relay."
+
 STEPS = {
     "permissions": "Cloudflare token permissions",
     "tunnel": "Cloudflare Tunnel",
@@ -133,6 +137,15 @@ class Setup:
         if self.settings.get("resume_setup"):
             await asyncio.sleep(10)  # let integrations finish loading
             self.start()
+        elif self.settings.get("integration_pending"):
+            await asyncio.sleep(10)
+            if await self.ha.integration_loaded(TURN_DOMAIN):
+                try:
+                    await self._ensure_integration_entry()
+                    self.settings["integration_pending"] = False
+                    self.settings.save()
+                except (HAError, aiohttp.ClientError) as err:
+                    _LOGGER.warning("Could not configure camera relay integration: %s", err)
 
     # -- steps -------------------------------------------------------------------
 
@@ -144,10 +157,19 @@ class Setup:
 
         # 1. Permissions
         self._set("permissions", "running")
-        perms = await self.cf.check_permissions()
-        missing = [f"{p} (Cloudflare said: {perms[p]})" for p in REQUIRED_PERMISSIONS if perms.get(p)]
+        for attempt in range(PERMISSION_ATTEMPTS):
+            perms = await self.cf.check_permissions()
+            missing = [f"{p} (Cloudflare said: {perms[p]})" for p in REQUIRED_PERMISSIONS if perms.get(p)]
+            if not missing:
+                break
+            if attempt < PERMISSION_ATTEMPTS - 1:
+                # Token edits take a minute or so to reach Cloudflare's API.
+                self._set("permissions", "running", "Waiting for Cloudflare to apply recent token changes…")
+                await asyncio.sleep(PERMISSION_RETRY_DELAY)
         if missing:
-            self._set("permissions", "fail", "The token is missing: " + "; ".join(missing),
+            self._set("permissions", "fail",
+                      "The token is missing: " + "; ".join(missing)
+                      + ". If you just edited the token, wait a minute and re-run setup.",
                       diagnostics=await self.cf.diagnose())
             return
         turn_allowed = perms.get(TURN_PERMISSION) is None
@@ -178,15 +200,20 @@ class Setup:
         self._set("turn", "running")
         use_turn = await self._ensure_turn(turn_allowed)
 
-        # 7. Integration files, 8. proxy trust; restart at most once for both.
-        need_restart = False
+        # 7. Integration files. Never restart Home Assistant just for this: an already loaded
+        # (older) version keeps working, and a first install finishes on the next restart.
+        integration_loaded = False
         if use_turn:
             self._set("integration", "running")
             files_changed = await asyncio.to_thread(install_integration)
-            need_restart = files_changed or not await self.ha.integration_loaded(TURN_DOMAIN)
+            integration_loaded = await self.ha.integration_loaded(TURN_DOMAIN)
+            if not integration_loaded:
+                self.settings["integration_pending"] = True
+                self.settings.save()
         else:
             self._set("integration", "skip", "Camera relay not configured")
 
+        # 8. Proxy trust. Home Assistant restarts itself to apply this (first setup only).
         self._set("proxy", "running")
         new_http = await self._needed_http_config()
         if new_http is not None:
@@ -197,15 +224,14 @@ class Setup:
                 self._set("integration", "running", "Waiting for restart…")
             await self.ha.configure_http(new_http)
             raise RestartPending
-        if need_restart:
-            self.settings["resume_setup"] = True
-            self.settings.save()
-            self._set("integration", "running", "Installed; restarting Home Assistant to load it…")
-            await self.ha.restart()
-            raise RestartPending
 
         if use_turn:
-            await self._ensure_integration_entry()
+            if integration_loaded:
+                await self._ensure_integration_entry()
+                if files_changed:
+                    self._set("integration", "ok", "Updated; the new version loads on Home Assistant's next restart")
+            else:
+                self._set("integration", "warn", RESTART_TO_FINISH)
 
         # 9. End-to-end
         self._set("test", "running")
@@ -236,6 +262,8 @@ class Setup:
 
     async def _ensure_integration_entry(self) -> None:
         if await self.ha.config_entries(TURN_DOMAIN):
+            self.settings["integration_pending"] = False
+            self.settings.save()
             self._set("integration", "ok", "Configured")
             return
         if not self.settings.get("turn_key_id"):
@@ -245,6 +273,8 @@ class Setup:
             TURN_DOMAIN, {"key_id": self.settings["turn_key_id"], "api_token": self.settings["turn_key"]}
         )
         if result.get("type") == "create_entry":
+            self.settings["integration_pending"] = False
+            self.settings.save()
             self._set("integration", "ok", "Configured")
         else:
             self._set("integration", "fail", f"Unexpected response: {result.get('errors') or result.get('type')}")

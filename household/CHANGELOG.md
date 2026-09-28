@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Setup no longer restarts Home Assistant to update the camera relay integration. The new version loads on the next restart. A first-time install shows a "Restart Home Assistant to finish" button instead of restarting on its own.
+- The permission check retries for about a minute, since Cloudflare takes a moment to apply token edits.
+
 ## 0.2.3
 
 - The Household page (members, revoking) is always reachable, even while setup is incomplete.

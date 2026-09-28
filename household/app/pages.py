@@ -362,7 +362,8 @@ _STATUS_ICON = {"ok": ("ok", "✔"), "warn": ("warn", "⚠"), "fail": ("bad", "�
                 "running": ("", '<span class="spinner"></span>')}
 
 
-def setup_page(base: str, hostname: str, steps: dict, results: dict, running: bool, complete: bool) -> str:
+def setup_page(base: str, hostname: str, steps: dict, results: dict, running: bool, complete: bool,
+               restart_needed: bool = False) -> str:
     rows = []
     for key, label in steps.items():
         result = results.get(key)
@@ -384,6 +385,10 @@ def setup_page(base: str, hostname: str, steps: dict, results: dict, running: bo
                   + ('' if results else '<p class="muted">Home Assistant may restart once during setup.</p>'))
     done = (f'<div class="card"><p class="ok"><b>Remote access is ready.</b></p><p>Add your own phone first: on Wi-Fi, open the join portal '
             f'(QR code on the <a href="{e(base)}/">Household page</a>) and choose “I already have an account”.</p></div>') if complete else ""
+    if restart_needed and not running:
+        button += (f'<form method="post" action="{e(base)}/setup/restart" style="margin-top:10px" '
+                   """onsubmit="return confirm('Restart Home Assistant now? It takes about a minute.')">"""
+                   '<button class="btn">Restart Home Assistant to finish</button></form>')
     poll = "setTimeout(()=>location.reload(),3000);" if running else ""
     return page(
         "Remote access setup",
